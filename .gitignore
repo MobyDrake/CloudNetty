@@ -1,0 +1,19 @@
+## Java
+
+# Compiled class file
+*.class
+*.war
+*.ear
+hs_err_pid*
+
+# Intellij
+.idea/
+*.iml
+*.iws
+
+# Maven
+log/
+target/
+
+# Log file
+*.log
