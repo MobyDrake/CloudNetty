@@ -3,10 +3,12 @@ package ru.mobydrake.client.handlers;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import javafx.application.Platform;
+import javafx.beans.property.BooleanProperty;
 import javafx.collections.ObservableList;
 import ru.mobydrake.client.util.FileObj;
+import ru.mobydrake.common.AuthRequest;
 import ru.mobydrake.common.FileMessage;
-import ru.mobydrake.common.ListMessage;
+import ru.mobydrake.common.ListRequest;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -18,9 +20,13 @@ import java.nio.file.StandardOpenOption;
 public class ClientHandler extends ChannelInboundHandlerAdapter {
     private ObservableList<FileObj> listServerFiles;
     private ObservableList<FileObj> listLocalFiles;
-    private final String STORAGE = "client/storage/";
+    private BooleanProperty auth;
+    private BooleanProperty connected;
+    private static final String STORAGE = "client/storage/";
 
-    public ClientHandler(ObservableList<FileObj> listServerFiles, ObservableList<FileObj> listLocalFiles) {
+    public ClientHandler(BooleanProperty connected, BooleanProperty auth, ObservableList<FileObj> listServerFiles, ObservableList<FileObj> listLocalFiles) {
+        this.connected = connected;
+        this.auth = auth;
         this.listServerFiles = listServerFiles;
         this.listLocalFiles = listLocalFiles;
     }
@@ -29,12 +35,19 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         if (msg == null) return;
 
-        if (msg instanceof ListMessage) {
-            listMessage((ListMessage) msg);
+        if (msg instanceof ListRequest) {
+            listMessage((ListRequest) msg);
         }
         if (msg instanceof FileMessage) {
             fileMessage((FileMessage) msg);
         }
+        if (msg instanceof AuthRequest) {
+            autRequest((AuthRequest) msg);
+        }
+    }
+
+    private void autRequest(AuthRequest msg) {
+        auth.set(msg.isAuth());
     }
 
     private void fileMessage(FileMessage msg) throws IOException {
@@ -43,7 +56,7 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
         Platform.runLater(() -> listLocalFiles.add(new FileObj(path)));
     }
 
-    private void listMessage(ListMessage msg) {
+    private void listMessage(ListRequest msg) {
         Platform.runLater(() -> {
             listServerFiles.clear();
             //msg.getList().stream().map(FileObj::new).forEach(listServerFiles::add);
@@ -57,5 +70,11 @@ public class ClientHandler extends ChannelInboundHandlerAdapter {
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         cause.printStackTrace();
         ctx.close();
+    }
+
+    @Override
+    public void channelUnregistered(ChannelHandlerContext ctx) throws Exception {
+        auth.set(false);
+        connected.set(false);
     }
 }

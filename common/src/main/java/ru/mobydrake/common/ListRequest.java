@@ -2,7 +2,7 @@ package ru.mobydrake.common;
 
 import java.util.List;
 
-public class ListMessage extends AbstractMessage {
+public class ListRequest extends AbstractMessage {
     private List<String> list;
 
     public void setList(List<String> list) {

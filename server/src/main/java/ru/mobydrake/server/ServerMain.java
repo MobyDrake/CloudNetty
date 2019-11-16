@@ -1,5 +1,6 @@
 package ru.mobydrake.server;
 
+import io.netty.handler.stream.ChunkedWriteHandler;
 import ru.mobydrake.server.handler.*;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -13,21 +14,26 @@ import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 
-public class ServerMain {
-    private final int PORT = 8182;
+import java.sql.SQLException;
 
-    public void run() throws InterruptedException {
+public class ServerMain {
+    private static final int PORT = 8182;
+
+    public void run() throws InterruptedException, SQLException {
         EventLoopGroup bossGroup = new NioEventLoopGroup();
         EventLoopGroup workerGroup = new NioEventLoopGroup();
 
         try {
+            AuthService.connect();
+
             ServerBootstrap bootstrap = new ServerBootstrap()
                     .group(bossGroup, workerGroup)
                     .channel(NioServerSocketChannel.class)
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         protected void initChannel(SocketChannel socketChannel) throws Exception {
                             socketChannel.pipeline().addLast(
-                                    new ObjectDecoder(50 * 1024 *1024, ClassResolvers.cacheDisabled(null)),
+                                    new ObjectDecoder(50 * 1024 * 1024, ClassResolvers.cacheDisabled(null)),
+                                    new ChunkedWriteHandler(),
                                     new ObjectEncoder(),
                                     new ServerHandler()
                             );
@@ -40,10 +46,11 @@ public class ServerMain {
         } finally {
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
+            AuthService.disconnect();
         }
     }
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, SQLException {
         new ServerMain().run();
     }
 }
