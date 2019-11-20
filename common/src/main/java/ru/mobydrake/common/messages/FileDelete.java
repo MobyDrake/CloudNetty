@@ -1,4 +1,4 @@
-package ru.mobydrake.common;
+package ru.mobydrake.common.messages;
 
 public class FileDelete extends AbstractMessage {
     private String fileName;

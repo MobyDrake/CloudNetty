@@ -1,33 +1,21 @@
 package ru.mobydrake.server.handler;
 
-import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import io.netty.handler.stream.ChunkedFile;
-import io.netty.handler.stream.ChunkedInput;
-import ru.mobydrake.common.*;
+import ru.mobydrake.common.messages.*;
 import ru.mobydrake.server.AuthService;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public class ServerHandler extends ChannelInboundHandlerAdapter {
-    //private final String STORAGE = "server/server_storage/";
     private static String STORAGE;
-    private String user;
     private List<String> list = new ArrayList<>();
-
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
@@ -54,22 +42,6 @@ public class ServerHandler extends ChannelInboundHandlerAdapter {
         if (msg instanceof FileDelete) {
             deleteFile(ctx, (FileDelete) msg);
         }
-//        if (msg instanceof ChunkedInput) {
-//            File file = new File(STORAGE + "testChunk.mkv");
-//            ByteBuf byteBuf = (ByteBuf) msg;
-//            ByteBuffer byteBuffer = byteBuf.nioBuffer();
-//            RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw");
-//            FileChannel fileChannel = randomAccessFile.getChannel();
-//
-//            while (byteBuffer.hasRemaining()){;
-//                fileChannel.position(file.length());
-//                fileChannel.write(byteBuffer);
-//            }
-//
-//            byteBuf.release();
-//            fileChannel.close();
-//            randomAccessFile.close();
-//        }
     }
 
 
@@ -80,6 +52,8 @@ public class ServerHandler extends ChannelInboundHandlerAdapter {
             ctx.writeAndFlush(msg);
             listMessage(ctx, new ListRequest());
         } else {
+            msg.setAuth(false);
+            ctx.writeAndFlush(msg);
             ctx.close();
         }
     }

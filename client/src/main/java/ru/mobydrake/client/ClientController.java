@@ -8,11 +8,12 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
-import io.netty.handler.stream.ChunkedFile;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import javafx.application.Platform;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
@@ -22,16 +23,14 @@ import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
 import javafx.stage.WindowEvent;
 import ru.mobydrake.client.handlers.ClientHandler;
-import ru.mobydrake.client.util.FileObj;
-import ru.mobydrake.common.*;
+import ru.mobydrake.common.utils.FileObj;
+import ru.mobydrake.common.messages.*;
 
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 
 
 public class ClientController {
@@ -46,13 +45,15 @@ public class ClientController {
     private TableView<FileObj> fileServerTable;
     @FXML
     private TableColumn<FileObj, String> fileNameServerColumn;
-    //TODO: отображение размера файла на сервере
+    //TODO: размер файла на сервере
     @FXML
     private TableColumn<FileObj, Long> fileSizeServerColumn;
     @FXML
     private VBox boxAuth;
     @FXML
     private VBox boxMain;
+    @FXML
+    private Label statusLabel;
     @FXML
     private TextField loginField;
     @FXML
@@ -62,18 +63,17 @@ public class ClientController {
     private BooleanProperty authentication = new SimpleBooleanProperty(false);
     private ObservableList<FileObj> listLocalFiles = FXCollections.observableArrayList();
     private ObservableList<FileObj> listServerFiles = FXCollections.observableArrayList();
+    private StringProperty status = new SimpleStringProperty();
+    private StringProperty STORAGE = new SimpleStringProperty();
 
     private final String ADDRESS = "localhost";
     private final int PORT = 8182;
-    private final String STORAGE = "client/storage/";
     private EventLoopGroup workerGroup;
     private Channel channel;
 
 
     @FXML
     private void initialize() {
-        boxAuth.visibleProperty().bind(connected);
-        boxAuth.managedProperty().bind(connected);
         boxAuth.visibleProperty().bind(authentication.not());
         boxAuth.managedProperty().bind(authentication.not());
 
@@ -82,11 +82,13 @@ public class ClientController {
 
         fileServerTable.setItems(listServerFiles);
         fileNameServerColumn.setCellValueFactory(cellData -> cellData.getValue().getFileName());
+//        fileSizeServerColumn.setCellValueFactory(cellData -> cellData.getValue().getSize().asObject());
 
         fileLocalTable.setItems(listLocalFiles);
         fileNameLocalColumn.setCellValueFactory(cellData -> cellData.getValue().getFileName());
         fileSizeLocalColumn.setCellValueFactory(cellData -> cellData.getValue().getSize().asObject());
-        refreshLocalFiles();
+
+        statusLabel.textProperty().bind(status);
     }
 
     EventHandler<WindowEvent> getCloseEvent() {
@@ -117,7 +119,7 @@ public class ClientController {
                                 new ObjectDecoder(50 * 1024 * 1024, ClassResolvers.cacheDisabled(null)),
                                 new ChunkedWriteHandler(),
                                 new ObjectEncoder(),
-                                new ClientHandler(connected, authentication, listServerFiles, listLocalFiles));
+                                new ClientHandler(connected, authentication, listServerFiles, listLocalFiles, status, STORAGE));
                     }
                 });
 
@@ -192,11 +194,11 @@ public class ClientController {
     }
 
     @FXML
-    private void refreshLocalFiles() {
+    public void refreshLocalFiles() {
         updateUI(() -> {
                 try {
-                    fileLocalTable.getItems().clear();
-                    Files.list(Paths.get(STORAGE)).map(FileObj::new).forEach(o -> listLocalFiles.add(o));
+                    listLocalFiles.clear();
+                    Files.list(Paths.get(STORAGE.getValue())).map(FileObj::new).forEach(o -> listLocalFiles.add(o));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -216,13 +218,6 @@ public class ClientController {
     @FXML
     private void sendFile() throws IOException {
         channel.writeAndFlush(new FileMessage(getSelectedLocalFile()));
-//        try {
-//            Path path = getSelectedLocalFile();
-//            RandomAccessFile raf = new RandomAccessFile(path.toString(), "r");
-//            channel.writeAndFlush(new ChunkedFile(raf));
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
     }
 
     @FXML
@@ -237,14 +232,14 @@ public class ClientController {
     }
 
     private Path getSelectedLocalFile() {
-        return Paths.get(STORAGE + fileLocalTable.getSelectionModel().getSelectedItem().getFileName().getValue());
+        return Paths.get(STORAGE.getValue() + fileLocalTable.getSelectionModel().getSelectedItem().getFileName().getValue());
     }
 
     private String getSelectedServerFile() {
         return fileServerTable.getSelectionModel().getSelectedItem().getFileName().getValue();
     }
 
-    private static void updateUI(Runnable r) {
+    public static void updateUI(Runnable r) {
         if (Platform.isFxApplicationThread()) {
             r.run();
         } else {
