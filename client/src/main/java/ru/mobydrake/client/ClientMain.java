@@ -14,11 +14,11 @@ public class ClientMain extends Application {
         Parent root = fxmlLoader.load();
         Scene scene = new Scene(root);
         primaryStage.setScene(scene);
-        primaryStage.setTitle("CloudBox");
+        primaryStage.setTitle("CloudNetty");
         primaryStage.show();
 
-        //ClientController controller = fxmlLoader.getController();
-        //controller.setClientMain(this);
+        ClientController controller = fxmlLoader.getController();
+        primaryStage.setOnCloseRequest(controller.getCloseEvent());
     }
 
     public ClientMain() {

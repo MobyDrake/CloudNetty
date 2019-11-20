@@ -1,4 +1,4 @@
-package ru.mobydrake.client.util;
+package ru.mobydrake.common.utils;
 
 import javafx.beans.property.LongProperty;
 import javafx.beans.property.SimpleLongProperty;

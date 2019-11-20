@@ -2,21 +2,19 @@ package ru.mobydrake.server.handler;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
-import ru.mobydrake.common.FileMessage;
-import ru.mobydrake.common.FileRequest;
-import ru.mobydrake.common.ListMessage;
+import ru.mobydrake.common.messages.*;
+import ru.mobydrake.server.AuthService;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class ServerHandler extends ChannelInboundHandlerAdapter {
-    private final String STORAGE = "server/server_storage/";
+    private static String STORAGE;
     private List<String> list = new ArrayList<>();
 
     @Override
@@ -25,12 +23,53 @@ public class ServerHandler extends ChannelInboundHandlerAdapter {
             return;
         }
 
+        if (msg instanceof AuthRequest) {
+            authRequest(ctx, (AuthRequest) msg);
+        }
+
         if (msg instanceof FileRequest) {
             fileRequest(ctx, (FileRequest) msg);
         }
 
-        if (msg instanceof ListMessage) {
-            listMessage(ctx, (ListMessage) msg);
+        if (msg instanceof ListRequest) {
+            listMessage(ctx, (ListRequest) msg);
+        }
+
+        if (msg instanceof FileMessage) {
+            fileMessage(ctx, (FileMessage) msg);
+        }
+
+        if (msg instanceof FileDelete) {
+            deleteFile(ctx, (FileDelete) msg);
+        }
+    }
+
+
+    private void authRequest(ChannelHandlerContext ctx, AuthRequest msg) throws IOException {
+        if (AuthService.auth(msg.getLogin(), msg.getPassword())) {
+            msg.setAuth(true);
+            STORAGE = "server/server_storage/" + msg.getLogin() + "/";
+            ctx.writeAndFlush(msg);
+            listMessage(ctx, new ListRequest());
+        } else {
+            msg.setAuth(false);
+            ctx.writeAndFlush(msg);
+            ctx.close();
+        }
+    }
+
+    private void deleteFile(ChannelHandlerContext ctx, FileDelete msg) throws IOException {
+        Path path = Paths.get(STORAGE + msg.getFileName());
+        if (Files.exists(path)) {
+            Files.delete(Paths.get(STORAGE + msg.getFileName()));
+        }
+        listMessage(ctx, new ListRequest());
+    }
+
+    private void fileMessage(ChannelHandlerContext ctx, FileMessage msg) throws IOException {
+        if (Files.notExists(Paths.get(STORAGE + msg.getFileName()))) {
+            Files.write(Paths.get(STORAGE + msg.getFileName()), msg.getData(), StandardOpenOption.CREATE);
+            listMessage(ctx, new ListRequest());
         }
     }
 
@@ -40,16 +79,18 @@ public class ServerHandler extends ChannelInboundHandlerAdapter {
             FileMessage fm = new FileMessage(pathFile);
             ctx.writeAndFlush(fm);
         } else {
-            System.out.println("error");
+            System.out.println("File is not exists");
         }
     }
 
-    private void listMessage(ChannelHandlerContext ctx, ListMessage msg) throws IOException {
+    private void listMessage(ChannelHandlerContext ctx, ListRequest msg) throws IOException {
+        if (Files.notExists(Paths.get(STORAGE))) {
+            Files.createDirectory(Paths.get(STORAGE));
+        }
         list.clear();
         Files.list(Paths.get(STORAGE)).map(p -> p.getFileName().toString()).forEach(list::add);
         msg.setList(list);
         ctx.writeAndFlush(msg);
-
     }
 
     @Override
